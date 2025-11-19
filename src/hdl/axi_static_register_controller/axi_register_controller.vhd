@@ -58,7 +58,7 @@ entity axi_static_register_controller is
     axi_register_alti_wr   : out std_logic_vector(C_S_AXI_DATA_WIDTH - 1 downto 0);
     axi_register_sped_wr   : out std_logic_vector(C_S_AXI_DATA_WIDTH - 1 downto 0);
     axi_register_tpch_wr   : out std_logic_vector(C_S_AXI_DATA_WIDTH - 1 downto 0);
-    axi_register_head_wr   : out std_logic_vector(C_S_AXI_DATA_WIDTH - 1 downto 0);
+    axi_register_head_wr   : out std_logic_vector(C_S_AXI_DATA_WIDTH - 1 downto 0)
 
     
   );
