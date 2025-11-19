@@ -36,16 +36,14 @@ TELEMETRY = [
     "pitch",
     "heading",
     "roll",
-    "dynamic_pressure",
-    "aerodynamic_force",
-    "thrust_specific_fuel_consumption"
+    "dynamic_pressure"
+
 ]
 CONTROL = [
     "throttle",
     "pitch",
     "yaw",
-    "roll",
-    "",
+    "roll"
 ]
 
 
@@ -128,9 +126,9 @@ class TelemetryViewer(QWidget):
 
         self.setLayout(self._layout)
 
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_plot)
-        self.timer.start(10)
+        #self.timer = QTimer()
+        #self.timer.timeout.connect(self.update_plot)
+        #self.timer.start(20)
 
         return
     
@@ -188,6 +186,9 @@ class MonitoringWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.setUI()
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.update_all_plots)
+        self.update_timer.start(33)
         return
     def setUI(self):
         self._layout = QVBoxLayout()
@@ -196,13 +197,16 @@ class MonitoringWidget(QWidget):
         for teleme in TELEMETRY:
             telemetry_window = TelemetryWindow(teleme)
             self.mdi.addSubWindow(telemetry_window)
+        for contr in CONTROL:
+            control_window = TelemetryWindow(contr)
+            self.mdi.addSubWindow(control_window)
 
         QTimer.singleShot(0,self.arrange_subwindows)
         self.setLayout(self._layout)
         return
     
     def arrange_subwindows(self):
-        cols = 5
+        cols = 6
         rows = 2
 
         subwindows = self.mdi.subWindowList()
@@ -227,6 +231,10 @@ class MonitoringWidget(QWidget):
             widget.update_values(telemetry_dict[title]) 
         
         return
+    
+    def update_all_plots(self):
+        for win in self.mdi.subWindowList():
+            win.widget().update_plot()
 
 
 class FMMainWindow(QWidget):

@@ -6,42 +6,29 @@ import krpc
 from PyQt6.QtCore import pyqtSignal
 from PyQt6 import QtCore, QtGui
 from queue import Queue
-TELEMETRY = [
-    "mean_altitude",
-    "latitude",
-    "longitude",
-    "pitch",
-    "heading",
-    "roll",
-    "dynamic_pressure",
-    "speed",
-    "aerodynamic_force"
-]
 
-FLIGHT_TELEMETRY = [
-    "mean_altitude",
-    "latitude",
-    "longitude",
-    "pitch",
-    "heading",
-    "roll",
-    "dynamic_pressure"
-]
 
-VESSEL_TELEMETRY = [
-    "speed",
-    "aerodynamic_force"
-]
+
+
+TELEMETRY = {
+    "mean_altitude" : "vessel",
+    "latitude" : "vessel",
+    "longitude" : "vessel",
+    "pitch" : "vessel",
+    "heading" : "vessel",
+    "roll" : "vessel",
+    "dynamic_pressure" : "vessel",
+    "speed" : "flight"
+}
 CONTROL = [
     "throttle",
     "pitch",
     "yaw",
-    "roll",
-    "",
+    "roll"
 ]
 
 class kRPCReader(QtCore.QThread):
-    telemetry_updated = pyqtSignal(dict)
+    telemetry_updated = pyqtSignal(dict, dict)
     def __init__(self):
         super().__init__()
         self.connected = False
@@ -49,6 +36,7 @@ class kRPCReader(QtCore.QThread):
         self.stream_added = False
         self.vessel = None
         self.telemetry_stream = {}
+        self.control_stream = {}
 
 
     def run(self):
@@ -61,15 +49,24 @@ class kRPCReader(QtCore.QThread):
                 if self.krpc_conn.krpc.current_game_scene == self.krpc_conn.krpc.GameScene.flight:
                     if self.vessel is None:
                         self.vessel = self.krpc_conn.space_center.active_vessel
-                        self.flight_info = self.vessel.flight()
+                        self.vessel_info = self.vessel.flight()
+                        self.vessel_control = self.vessel.control
+                        if not self.stream_added:
+                            refframe = self.vessel.orbit.body.reference_frame
+                        self.flight_info = self.vessel.flight(refframe)
 
-                    if not self.stream_added:
-                        refframe = self.vessel.orbit.body.reference_frame
+                    
                         
-                        for tele in TELEMETRY:
-                            self.telemetry_stream[tele] = self.krpc_conn.add_stream(getattr, self.flight_info, tele)
-                        #for tele in VESSEL_TELEMETRY:
-                            #self.telemetry_stream[tele] = self.krpc_conn.add_stream(getattr,self.vessel, tele)
+                        for tele, ref in TELEMETRY.items():
+                            match ref:
+                                case "vessel":
+                                    self.telemetry_stream[tele] = self.krpc_conn.add_stream(getattr, self.vessel_info, tele)
+                                case "flight":
+                                    self.telemetry_stream[tele] = self.krpc_conn.add_stream(getattr,self.flight_info, tele)
+                        
+                        for contr in CONTROL:
+                            self.control_stream[contr] = self.krpc_conn.add_stream(getattr, self.vessel_control, contr)
+                        
                         #self.telemetry_stream["speed"] = self.krpc_conn.add_stream(getattr,self.flight_info,"speed")
                         #self.telemetry_stream["aerodynamic_force"] = self.krpc_conn.add_stream(getattr,self.flight_info,"aerodynamic_force")
                     telemetry_dict = {}
@@ -78,12 +75,18 @@ class kRPCReader(QtCore.QThread):
                             telemetry_dict[tele] = self.telemetry_stream[tele]()
                         except Exception as e:
                             ic("skiped",tele)
+                    control_dict = {}
+                    for contr in CONTROL:
+                        try:
+                            telemetry_dict[contr] = self.control_stream[contr]()
+                        except Exception as e:
+                            ic('skipped', contr)
                     #for tele in VESSEL_TELEMETRY:
                         #try:
                             #telemetry_dict[tele] = self.telemetry_stream[tele](refframe)
                         #except Exception as e:
                             #ic("skiped",tele)
-                    self.telemetry_updated.emit(telemetry_dict)
+                    self.telemetry_updated.emit(telemetry_dict, control_dict)
                     self.msleep(10)
                     
                 else:
