@@ -108,20 +108,28 @@ int transfer_data() {
     if (pcb_client == NULL) return 0;   // no client connected yet
 
     //uint32_t val = *count_reg;
-    uint32_t thrt = Xil_In32(REG_THRT_R_ADDR);
-    uint32_t cpch = Xil_In32(REG_CPCH_R_ADDR);
-    uint32_t roll = Xil_In32(REG_ROLL_R_ADDR);
-    uint32_t cyaw = Xil_In32(REG_CYAW_R_ADDR);
+    uint32_t thrt_raw = Xil_In32(REG_THRT_R_ADDR);
+    float thrt;
+    memcpy(&thrt, &thrt_raw, 4);
+    uint32_t cpch_raw = Xil_In32(REG_CPCH_R_ADDR);
+    float cpch;
+    memcpy(&cpch, &cpch_raw, 4);
+    uint32_t roll_raw = Xil_In32(REG_ROLL_R_ADDR);
+    float roll;
+    memcpy(&roll, &roll_raw, 4);
+    uint32_t cyaw_raw = Xil_In32(REG_CYAW_R_ADDR);
+    float cyaw;
+    memcpy(&cyaw, &cyaw_raw, 4);
     //uint32_t freq = *freq_reg;
     //printf("freq = %d, count = %d\n\r",freq, val);
     char msg[256];
-    int len = sprintf(msg, "{\"control\" : {\"thrt\": %f, \"cpch\": %f, \"roll\": %f, \"cyaw\": %f}}\n", (float)thrt,(float)cpch,(float)roll,(float)cyaw);
+    int len = snprintf(msg,sizeof(msg), "{\"control\" : {\"thrt\": %f, \"cpch\": %f, \"roll\": %f, \"cyaw\": %f}}\n", thrt,cpch,roll,cyaw);
 
     if (tcp_sndbuf(pcb_client) >= len) {
         tcp_write(pcb_client, msg, len, TCP_WRITE_FLAG_COPY);
         tcp_output(pcb_client); // push immediately
         //printf(msg);
-        usleep(400);
+        usleep(1000);
     }
 
     return 0;

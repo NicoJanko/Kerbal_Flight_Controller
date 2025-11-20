@@ -34,25 +34,33 @@ void send_data(const char *buffer){
     float alti = 0.0;
     if (alti_ptr) {
         sscanf(alti_ptr, "\"ALTI\":%f", &alti);
-        *alti_reg = alti;
+        uint32_t alti_raw;
+        memcpy(&alti_raw, &alti, 4);
+        *alti_reg = alti_raw;
     }
     char *sped_ptr = strstr(buffer, "\"SPED\"");
     float sped = 0.0;
     if (sped_ptr) {
         sscanf(sped_ptr, "\"SPED\":%f", &sped);
-        *sped_reg = sped;
+        uint32_t sped_raw;
+        memcpy(&sped_raw, &sped, 4);
+        *sped_reg = sped_raw;
     }
     char *tpch_ptr = strstr(buffer, "\"TPCH\"");
     float tpch = 0.0;
     if (tpch_ptr) {
         sscanf(tpch_ptr, "\"TPCH\":%f", &tpch);
-        *tpch_reg = tpch;
+        uint32_t tpch_raw;
+        memcpy(&tpch_raw, &tpch, 4);
+        *tpch_reg = tpch_raw;
     }
     char *head_ptr = strstr(buffer, "\"HEAD\"");
     float head = 0.0;
     if (head_ptr) {
         sscanf(head_ptr, "\"HEAD\":%f", &head);
-        *head_reg = head;
+        uint32_t head_raw;
+        memcpy(&head_raw, &head, 4);
+        *head_reg = head_raw;
     }
 
 
