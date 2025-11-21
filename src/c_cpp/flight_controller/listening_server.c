@@ -7,6 +7,7 @@
 #include <string.h>
 #include "xparameters.h"
 #include "xil_io.h"
+#include "reg_map_addr.h"
 
 
 #include "lwip/err.h"
@@ -18,11 +19,7 @@
 
 #define SERVER_PORT       7
 
-#define BASE_ADDR          XPAR_AXI_STATIC_REGISTER_0_BASEADDR
-#define REG_THRT_R_ADDR            XPAR_AXI_STATIC_REGISTER_0_BASEADDR + 0x0080
-#define REG_CPCH_R_ADDR            XPAR_AXI_STATIC_REGISTER_0_BASEADDR + 0x0084
-#define REG_ROLL_R_ADDR            XPAR_AXI_STATIC_REGISTER_0_BASEADDR + 0x0088
-#define REG_CYAW_R_ADDR            XPAR_AXI_STATIC_REGISTER_0_BASEADDR + 0x008C
+
 
 
 //volatile uint32_t* count_reg = (volatile uint32_t*)(REG_0_R_ADDR);

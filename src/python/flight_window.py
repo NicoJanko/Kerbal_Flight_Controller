@@ -25,18 +25,18 @@ from PyQt6.QtCore import Qt,QTimer, pyqtSignal, QEvent,pyqtSlot
 import numpy as np
 import polars as pl
 
-from flight_threads import kRPCReader
+from flight_threads import kRPCReader, EthReader, EthSender
 
 
 TELEMETRY = [
     "mean_altitude",
-    "latitude",
-    "longitude",
+    #"latitude",
+    #"longitude",
     "speed",
     "pitch",
     "heading",
     "roll",
-    "dynamic_pressure"
+    #"dynamic_pressure"
 
 ]
 CONTROL = [
@@ -74,12 +74,15 @@ class ConnectionWidget(QWidget):
         self.rKPC_status.setFixedSize(20,20)
         self.rKPC_status.setStyleSheet("background-color: red; border: 1px solid black;")
         self.rKPC_reader = kRPCReader()
+        self.rKPC_reader.telemetry_updated.connect(self.send_telemetry)
 
         self.fc_connect_button = QPushButton("Connect to Flight Controller")
         self.fc_connect_button.clicked.connect(self.connect_fc)
         self.fc_status = QLabel()
         self.fc_status.setFixedSize(20,20)
         self.fc_status.setStyleSheet("background-color: red; border: 1px solid black;")
+        self.eth_sender = EthSender()
+        self.eth_reader = EthReader()
 
 
         self.connect_layout.addWidget(self.rKPC_connect_button)
@@ -97,9 +100,39 @@ class ConnectionWidget(QWidget):
         else:
             self.rKPC_status.setStyleSheet("background-color: red; border: 1px solid black;")
 
-        
     
     def connect_fc(self):
+        self.eth_sender.start()
+        time.sleep(0.5)
+        self.eth_reader.start()
+        if self.eth_sender.connected and self.eth_reader.connected:
+            self.fc_status.setStyleSheet("background-color: green; border: 1px solid black;")
+        else:
+            self.fc_status.setStyleSheet("background-color: red; border: 1px solid black;")
+        return
+    
+    @pyqtSlot(dict)
+    def send_telemetry(self,tele_dict):
+        command = {"command" : "SEND_DATA",
+                   "value" : {
+                       "ALTI" : tele_dict["mean_altitude"],
+                       "SPED" : tele_dict["speed"],
+                       "TPCH" : tele_dict["pitch"],
+                       "HEAD" : tele_dict["heading"],
+                       "ROLL" : tele_dict["roll"],
+                       "INER" : tele_dict["moment_of_inertia"],
+                       "PATQ" : tele_dict["available_torque"][0],
+                       "RATQ" : tele_dict["available_torque"][1],
+                       "YATQ" : tele_dict["available_torque"][2],
+                       "PAVL" : tele_dict["angular_velocity"][0],
+                       "RAVL" : tele_dict["angular_velocity"][0],
+                       "YAVL" : tele_dict["angular_velocity"][0]
+                    }
+                   }
+        self.eth_sender.send_command(command)
+        return
+    
+    def send_command(self):
 
         return
 
@@ -206,7 +239,7 @@ class MonitoringWidget(QWidget):
         return
     
     def arrange_subwindows(self):
-        cols = 6
+        cols = 5
         rows = 2
 
         subwindows = self.mdi.subWindowList()
@@ -259,7 +292,7 @@ class FMMainWindow(QWidget):
 
         self.monitoring_widget = MonitoringWidget()
         self._layout.addWidget(self.monitoring_widget,9)
-
+        
         self.connect_widget.rKPC_reader.telemetry_updated.connect(self.monitoring_widget.telemetry_updated)
 
 

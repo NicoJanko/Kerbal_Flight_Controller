@@ -5,6 +5,7 @@
 #include <string.h>
 #include "xparameters.h"
 #include <unistd.h>
+#include "reg_map_addr.h"
 
 
 #include "lwip/err.h"
@@ -16,11 +17,7 @@
 
 #define SERVER_PORT       8
 
-#define REG_CTRL_WR_ADDR          XPAR_AXI_STATIC_REGISTER_0_BASEADDR
-#define REG_ALTI_WR_ADDR            XPAR_AXI_STATIC_REGISTER_0_BASEADDR + 4
-#define REG_SPED_WR_ADDR            XPAR_AXI_STATIC_REGISTER_0_BASEADDR + 8
-#define REG_TPCH_WR_ADDR            XPAR_AXI_STATIC_REGISTER_0_BASEADDR + 12
-#define REG_HEAD_WR_ADDR            XPAR_AXI_STATIC_REGISTER_0_BASEADDR + 16
+
 
 
 volatile uint32_t* ctrl_reg = (volatile uint32_t*)(REG_CTRL_WR_ADDR);
@@ -28,8 +25,15 @@ volatile uint32_t* alti_reg = (volatile uint32_t*)(REG_ALTI_WR_ADDR);
 volatile uint32_t* sped_reg = (volatile uint32_t*)(REG_SPED_WR_ADDR);
 volatile uint32_t* tpch_reg = (volatile uint32_t*)(REG_TPCH_WR_ADDR);
 volatile uint32_t* head_reg = (volatile uint32_t*)(REG_HEAD_WR_ADDR);
+uint32_t* iner_reg;
+uint32_t* p_av_torq_reg;
+uint32_t* r_av_torq_reg;
+uint32_t* y_av_torq_reg;
+volatile uint32_t* p_aveloc_reg = (volatile uint32_t*)(REG_PVLT_WR_ADDR);
+volatile uint32_t* r_aveloc_reg = (volatile uint32_t*)(REG_RVLT_WR_ADDR);
+volatile uint32_t* y_aveloc_reg = (volatile uint32_t*)(REG_YVLT_WR_ADDR);
 
-void send_data(const char *buffer){
+void receive_data(const char *buffer){
     char *alti_ptr = strstr(buffer, "\"ALTI\"");
     float alti = 0.0;
     if (alti_ptr) {
@@ -62,6 +66,62 @@ void send_data(const char *buffer){
         memcpy(&head_raw, &head, 4);
         *head_reg = head_raw;
     }
+    char *inertia_ptr = strstr(buffer, "\"INER\"");
+    float inertia = 0.0;
+    if (inertia_ptr) {
+        sscanf(inertia_ptr, "\"INER\":%f", &head);
+        uint32_t inertia_raw;
+        memcpy(&inertia_raw, &head, 4);
+        *head_reg = inertia_raw;
+    }
+    char *p_av_torq_ptr = strstr(buffer, "\"PVTQ\"");
+    float p_av_torq = 0.0;
+    if (p_av_torq_ptr) {
+        sscanf(p_av_torq_ptr, "\"PVTQ\":%f", &p_av_torq);
+        uint32_t p_av_torq_raw;
+        memcpy(&p_av_torq_raw, &p_av_torq, 4);
+        *p_av_torq_reg = p_av_torq_raw;
+    }
+    char *r_av_torq_ptr = strstr(buffer, "\"RVTQ\"");
+    float r_av_torq = 0.0;
+    if (r_av_torq_ptr) {
+        sscanf(r_av_torq_ptr, "\"RVTQ\":%f", &r_av_torq);
+        uint32_t r_av_torq_raw;
+        memcpy(&r_av_torq_raw, &r_av_torq, 4);
+        *r_av_torq_reg = r_av_torq_raw;
+    }
+    char *y_av_torq_ptr = strstr(buffer, "\"YVTQ\"");
+    float y_av_torq = 0.0;
+    if (y_av_torq_ptr) {
+        sscanf(y_av_torq_ptr, "\"YVTQ\":%f", &y_av_torq);
+        uint32_t y_av_torq_raw;
+        memcpy(&y_av_torq_raw, &y_av_torq, 4);
+        *y_av_torq_reg = y_av_torq_raw;
+    }
+    char *p_aveloc_ptr = strstr(buffer, "\"PVLT\"");
+    float p_aveloc = 0.0;
+    if (p_aveloc_ptr) {
+        sscanf(p_aveloc_ptr, "\"PVTQ\":%f", &p_aveloc);
+        uint32_t p_aveloc_raw;
+        memcpy(&p_aveloc_raw, &p_aveloc, 4);
+        *p_aveloc_reg = p_aveloc_raw;
+    }
+    char *p_aveloc_ptr = strstr(buffer, "\"PVLT\"");
+    float p_aveloc = 0.0;
+    if (p_aveloc_ptr) {
+        sscanf(p_aveloc_ptr, "\"PVTQ\":%f", &p_aveloc);
+        uint32_t p_aveloc_raw;
+        memcpy(&p_aveloc_raw, &p_aveloc, 4);
+        *p_aveloc_reg = p_aveloc_raw;
+    }
+    char *p_aveloc_ptr = strstr(buffer, "\"PVLT\"");
+    float p_aveloc = 0.0;
+    if (p_aveloc_ptr) {
+        sscanf(p_aveloc_ptr, "\"PVTQ\":%f", &p_aveloc);
+        uint32_t p_aveloc_raw;
+        memcpy(&p_aveloc_raw, &p_aveloc, 4);
+        *p_aveloc_reg = p_aveloc_raw;
+    }
 
 
 };
@@ -89,7 +149,7 @@ void treat_command(const char *buffer){
             }
         }
         else if (strcmp(command,"SEND_DATA" ) == 0) {
-                send_data(buffer);                
+                receive_data(buffer);                
             }
         else {
                 printf("Unknowned command");

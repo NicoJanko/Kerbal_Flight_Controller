@@ -2,6 +2,7 @@ import socket
 from icecream import ic
 
 import krpc
+import json
 
 from PyQt6.QtCore import pyqtSignal
 from PyQt6 import QtCore, QtGui
@@ -11,14 +12,17 @@ from queue import Queue
 
 
 TELEMETRY = {
-    "mean_altitude" : "vessel",
-    "latitude" : "vessel",
-    "longitude" : "vessel",
-    "pitch" : "vessel",
-    "heading" : "vessel",
-    "roll" : "vessel",
-    "dynamic_pressure" : "vessel",
-    "speed" : "flight"
+    "mean_altitude" : "vessel_flight",
+    #"latitude" : "vessel",
+    #"longitude" : "vessel",
+    "pitch" : "vessel_flight",
+    "heading" : "vessel_flight",
+    "roll" : "vessel_flight",
+    #"dynamic_pressure" : "vessel",
+    "speed" : "flight",
+    "moment_of_inertia":"vessel",
+    "available_torque":"vessel",
+    "angular_velocity":"pid"
 }
 CONTROL = [
     "throttle",
@@ -53,20 +57,26 @@ class kRPCReader(QtCore.QThread):
                         self.vessel_control = self.vessel.control
                         if not self.stream_added:
                             refframe = self.vessel.orbit.body.reference_frame
-                        self.flight_info = self.vessel.flight(refframe)
-
+                            self.flight_info = self.vessel.flight(refframe)
+                        
+                        
                     
                         
-                        for tele, ref in TELEMETRY.items():
-                            match ref:
-                                case "vessel":
-                                    self.telemetry_stream[tele] = self.krpc_conn.add_stream(getattr, self.vessel_info, tele)
-                                case "flight":
-                                    self.telemetry_stream[tele] = self.krpc_conn.add_stream(getattr,self.flight_info, tele)
+                            for tele, ref in TELEMETRY.items():
+                                match ref:
+                                    case "vessel_flight":
+                                        self.telemetry_stream[tele] = self.krpc_conn.add_stream(getattr, self.vessel_info,tele)
+                                    case "flight":
+                                        self.telemetry_stream[tele] = self.krpc_conn.add_stream(getattr,self.flight_info,tele)
+                                    case "vessel":
+                                        self.telemetry_stream[tele] = self.krpc_conn.add_stream(getattr,self.vessel,tele)
+                                    case "pid":
+                                        self.telemetry_stream[tele] = self.krpc_conn.add_stream(self.vessel.angular_velocity,self.vessel.surface_reference_frame)
+                                    
                         
-                        for contr in CONTROL:
-                            self.control_stream[contr] = self.krpc_conn.add_stream(getattr, self.vessel_control, contr)
-                        
+                            for contr in CONTROL:
+                                self.control_stream[contr] = self.krpc_conn.add_stream(getattr, self.vessel_control, contr)
+                            self.stream_added = True
                         #self.telemetry_stream["speed"] = self.krpc_conn.add_stream(getattr,self.flight_info,"speed")
                         #self.telemetry_stream["aerodynamic_force"] = self.krpc_conn.add_stream(getattr,self.flight_info,"aerodynamic_force")
                     telemetry_dict = {}
@@ -114,10 +124,11 @@ class kRPCReader(QtCore.QThread):
 
 class EthReader(QtCore.QThread):
     data_received = pyqtSignal(int)
-    def __init__(self,host="192.168.1.10", port=7, parent = None):
+    def __init__(self,host="192.168.1.10", port=50000, parent = None):
         super().__init__(parent)
         self.host = host
         self.port = port
+        self.connected = False
         self.running=False
         self.paused = False
         self.sock = None
@@ -139,11 +150,13 @@ class EthReader(QtCore.QThread):
         try:
             self.sock = socket.create_connection((self.host, self.port), timeout=1)
             self.sock.settimeout(0.5)
+            self.connected = True
             #self.status_changed.emit("connected")
             print(f"Connected to {self.host}:{self.port}")
             return True
         except Exception as e:
             #self.status_changed.emit(f"connect_failed: {e}")
+            self.connected = False
             print(f"TCP connection failed: {e}")
             return False
 
@@ -208,21 +221,22 @@ class EthReader(QtCore.QThread):
 
 class EthSender(QtCore.QThread):
     command_send = pyqtSignal(dict)
-    def __init__(self,host="192.168.1.10", port=8, parent = None):
+    def __init__(self,host="192.168.1.10", port=50001, parent = None):
         super().__init__(parent)
         self.host = host
         self.port = port
-        
+        self.connected = False
         self.sock = None
         self.running = False
         self._pending_command = None       # last-wins value from spinner
         self._lock = QtCore.QMutex()
         
 
-    def connect(self):
+    def connect_socket(self):
         try:
             self.sock = socket.create_connection((self.host, self.port), timeout=1)
             self.sock.settimeout(0.5)
+            self.connected = True
             print(f"Connected to {self.host}:{self.port}")
             return True
         except Exception as e:
@@ -234,10 +248,6 @@ class EthSender(QtCore.QThread):
         with QtCore.QMutexLocker(self._lock):
             self._pending_coeff = command
     
-    @QtCore.pyqtSlot(dict)
-    def command_receved(self,command:dict):
-        print("command receved")
-        self.send_command(command)
         
     def send_command(self,command:dict):
         json_data = json.dumps(command) + "\n" # Convert dict to JSON string
@@ -249,7 +259,7 @@ class EthSender(QtCore.QThread):
         
         self.running = True
         # initial connect (retry until connected or stop)
-        while self.running and not self.connect():
+        while self.running and not self.connect_socket():
             self.msleep(1000)
 
         while self.running:
